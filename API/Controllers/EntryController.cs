@@ -1,6 +1,8 @@
 using API.Data;
 using API.DTOs;
 using API.Entities;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,21 +13,24 @@ namespace API.Controllers
      public class EntryController : ControllerBase
      {
           private readonly DataContext _context;
-          public EntryController(DataContext context)
+          private readonly IMapper _mapper;
+          public EntryController(DataContext context, IMapper mapper)
           {
                _context = context;
+               _mapper = mapper;
           }
 
           [HttpGet]
-          public async Task<ActionResult<IEnumerable<Entry>>> GetEntries()
+          public async Task<ActionResult<IEnumerable<EntryDTO>>> GetEntries()
           {
-               return await _context.Entries.ToListAsync();
+               return await _context.Entries.ProjectTo<EntryDTO>(_mapper.ConfigurationProvider).ToListAsync();
           }
 
           [HttpPost("add")]
           public async Task<ActionResult<EntryDTO>> AddEntry(EntryDTO entry)
           {
-               _context.Entries.Add(new Entry {
+               _context.Entries.Add(new Entry
+               {
                     Longitude = entry.Longitude,
                     Latitude = entry.Latitude,
                     Value = entry.Value
@@ -33,8 +38,8 @@ namespace API.Controllers
 
                if (await _context.SaveChangesAsync() > 0)
                {
-                   return Ok(":D");
-                     
+                    return Ok(":D");
+
                }
                else return BadRequest("Failed to add entry");
 
@@ -48,19 +53,10 @@ namespace API.Controllers
                var upperLatitude = entry.Latitude + 0.5;
                var upperLongitude = entry.Longitude + 0.5;
 
-               var entries = _context.Entries.AsQueryable();
-
-               entries = entries.Where
-               (e => e.Latitude > lowerLatitude && e.Latitude < upperLatitude && e.Longitude > lowerLongitude && e.Longitude< upperLongitude);
-
-               var computedEntries = entries.Select(entry => new EntryDTO
-               {
-                  Longitude = entry.Longitude,
-                  Latitude = entry.Latitude,
-                  Value = entry.Value
-               });
-
-               return  new List<EntryDTO>(computedEntries);
+               return await _context.Entries.
+                    Where(e => e.Latitude > lowerLatitude && e.Latitude < upperLatitude
+                     && e.Longitude > lowerLongitude && e.Longitude < upperLongitude)
+                     .ProjectTo<EntryDTO>(_mapper.ConfigurationProvider).ToListAsync();
           }
      }
 }
