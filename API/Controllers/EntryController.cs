@@ -1,6 +1,7 @@
 using API.Data;
 using API.DTOs;
 using API.Entities;
+using System;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,17 @@ namespace API.Controllers
           [HttpPost("add")]
           public async Task<ActionResult<EntryDTO>> AddEntry(EntryDTO entry)
           {
+               var entries = await _context.Entries.ToListAsync();
+               var value = Math.Round(entry.Value,5);
+
+               foreach(Entry e in entries)
+               {
+                    if(Math.Round(e.Value,5) == value)
+                    {
+                         return Ok("Location already in database!");
+                    }
+               }
+               
                _context.Entries.Add(new Entry
                {
                     Longitude = entry.Longitude,
@@ -57,6 +69,18 @@ namespace API.Controllers
                     Where(e => e.Latitude > lowerLatitude && e.Latitude < upperLatitude
                      && e.Longitude > lowerLongitude && e.Longitude < upperLongitude)
                      .ProjectTo<EntryDTO>(_mapper.ConfigurationProvider).ToListAsync();
+          }
+
+          [HttpDelete("delete-entry/{entryId}")]
+          public async Task<ActionResult> DeleteEntry(int entryId)
+          {
+               _context.Entries.Remove(new Entry(){Id = entryId});
+
+                if (await _context.SaveChangesAsync() > 0)
+               {
+                    return Ok("Entry removed");
+               }
+               else return BadRequest("Failed to remove entry");
           }
      }
 }
